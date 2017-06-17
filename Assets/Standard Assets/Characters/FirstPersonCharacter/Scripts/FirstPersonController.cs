@@ -56,7 +56,14 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_AudioSource = GetComponent<AudioSource>();
 			m_MouseLook.Init(transform , m_Camera.transform);
         }
+		private void OnTriggerEnter(Collider other)
+		{
+			if (other.gameObject.CompareTag("5DiamondPickUp") || other.gameObject.CompareTag("Cubie") ||other.gameObject.CompareTag("Sphere"))
+			{
+				other.gameObject.SetActive(false);
 
+			}
+		}
 
         // Update is called once per frame
         private void Update()
