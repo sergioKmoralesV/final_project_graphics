@@ -33,6 +33,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
         [SerializeField] private AudioClip m_LandSound;           // the sound played when character touches back on ground.
 		[SerializeField] private AudioClip m_PickUp; 
 		[SerializeField] private AudioClip m_Wrong; 
+		[SerializeField] private AudioClip m_Alarm; 
+
 
         private Camera m_Camera;
         private bool m_Jump;
@@ -49,9 +51,10 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private AudioSource m_AudioSource;
 		private AudioSource m_PickUpSource;
 		private AudioSource m_WrongSource;
-
+		private AudioSource m_AlarmSource;
+		private float timer = 10.0f;
 		private int count;
-		private double timer ;
+
         // Use this for initialization
         private void Start()
         {
@@ -66,8 +69,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_AudioSource = GetComponent<AudioSource>();
 			m_MouseLook.Init(transform , m_Camera.transform);
 			count = 10;
-			timer = 0.0;
-			timer += Time.deltaTime;
+
+			timer -= Time.deltaTime;
 			SetCountText ();
         }
 		private void OnTriggerEnter(Collider other)
@@ -77,6 +80,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 				other.gameObject.SetActive(false);
 				if(count<10)
 					count = count + 1;
+				timer = 10.0f;
 				SetCountText ();
 				PickUpSound ();
 
@@ -92,7 +96,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 		void SetCountText ()
 		{
 			countText.text = count.ToString ();
-			time.text = timer.ToString ();
+			time.text = Math.Round(timer,2).ToString ();
 
 		}
         // Update is called once per frame
@@ -116,22 +120,21 @@ namespace UnityStandardAssets.Characters.FirstPerson
             {
                 m_MoveDir.y = 0f;
             }
-
-
+			timer -= Time.deltaTime;
+			SetCountText ();
+			if (timer <= 0.0) {
+				count = count - 1;
+				timer = 10.0f;
+				SetCountText ();
+				WrongSound ();
+			}
+			if(timer>3.0f && timer<3.1f)
+			{
+				AlarmSound();
+			}
 			m_PreviouslyGrounded = m_CharacterController.isGrounded;
 
         }
-		void LateUpdate() {
-			if (timer == 10.0) {
-				count = count - 1;
-				timer = 0.0;
-				timer += Time.deltaTime;
-				SetCountText ();
-			}
-//			PickUpSound ();
-//
-			SetCountText ();
-		}
 
         private void PlayLandingSound()
         {
@@ -181,6 +184,10 @@ namespace UnityStandardAssets.Characters.FirstPerson
 			m_MouseLook.UpdateCursorLock();
 
         }
+		private void AlarmSound(){
+			m_AudioSource.clip = m_Alarm;
+			m_AudioSource.Play ();
+		}
 		private void WrongSound(){
 			m_AudioSource.clip = m_Wrong;
 			m_AudioSource.Play ();
