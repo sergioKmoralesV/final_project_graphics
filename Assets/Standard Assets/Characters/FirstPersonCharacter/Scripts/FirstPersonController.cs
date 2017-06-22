@@ -1,10 +1,12 @@
 using System;
+using System.Threading;	
 using UnityEngine;
 using UnityStandardAssets.CrossPlatformInput;
 using UnityStandardAssets.Utility;
 using Random = UnityEngine.Random;
 using UnityEngine.UI;
 using System.Collections;
+
 
 namespace UnityStandardAssets.Characters.FirstPerson
 {
@@ -13,8 +15,10 @@ namespace UnityStandardAssets.Characters.FirstPerson
     public class FirstPersonController : MonoBehaviour
     {
         [SerializeField] private bool m_IsWalking;
+		[SerializeField] private float life;
 		[SerializeField] private Text countText;
 		[SerializeField] private Text time;
+        [SerializeField] private RawImage gameoverImage;
         [SerializeField] private float m_WalkSpeed;
         [SerializeField] private float m_RunSpeed;
         [SerializeField] [Range(0f, 1f)] private float m_RunstepLenghten;
@@ -34,8 +38,10 @@ namespace UnityStandardAssets.Characters.FirstPerson
 		[SerializeField] private AudioClip m_PickUp; 
 		[SerializeField] private AudioClip m_Wrong; 
 		[SerializeField] private AudioClip m_Alarm; 
+		[SerializeField] private AudioClip m_Gameover;
 
-
+        private bool flag =true;
+        private Rotator lifeController;
         private Camera m_Camera;
         private bool m_Jump;
         private float m_YRotation;
@@ -49,16 +55,16 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private float m_NextStep;
         private bool m_Jumping;
         private AudioSource m_AudioSource;
-		private AudioSource m_PickUpSource;
-		private AudioSource m_WrongSource;
-		private AudioSource m_AlarmSource;
+
 		private float timer = 10.0f;
-		private int count;
+        private GameObject rotater;
+
 
         // Use this for initialization
         private void Start()
         {
             m_CharacterController = GetComponent<CharacterController>();
+            
             m_Camera = Camera.main;
             m_OriginalCameraPosition = m_Camera.transform.localPosition;
             m_FovKick.Setup(m_Camera);
@@ -68,72 +74,97 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_Jumping = false;
             m_AudioSource = GetComponent<AudioSource>();
 			m_MouseLook.Init(transform , m_Camera.transform);
-			count = 10;
-
 			timer -= Time.deltaTime;
-			SetCountText ();
+            gameoverImage.gameObject.SetActive(false);
+            SetCountText ();
         }
 		private void OnTriggerEnter(Collider other)
 		{
-			if (other.gameObject.CompareTag("5DiamondPickUp") || other.gameObject.CompareTag("Cubie"))
+			if (other.gameObject.CompareTag("5DiamondPickUp"))
 			{
 				other.gameObject.SetActive(false);
-				if(count<10)
-					count = count + 1;
+				if(life<100)
+					life = life + 5;
 				timer = 10.0f;
 				SetCountText ();
 				PickUpSound ();
-
+            }
+            if ( other.gameObject.CompareTag("Cubie"))
+			{
+				other.gameObject.SetActive(false);
+				if(life<100)
+					life = life + 5;
+				timer = 10.0f;
+				SetCountText ();
+				PickUpSound ();
 			}
 			if (other.gameObject.CompareTag ("Sphere")) 
 			{
 				other.gameObject.SetActive(false);
-				count = count - 1;
+				life = life - 20;
+				if (life <= 0)
+					life = 0;
 				SetCountText ();
 				WrongSound ();
 			}
-		}
+            if (other.gameObject.CompareTag("alien"))
+            {
+                other.gameObject.SetActive(false);
+                life = life - 20;
+                if (life <= 0)
+                    life = 0;
+                SetCountText();
+                WrongSound();
+            }
+        }
 		void SetCountText ()
 		{
-			countText.text = count.ToString ();
+			countText.text = life.ToString ();
 			time.text = Math.Round(timer,2).ToString ();
 
 		}
         // Update is called once per frame
         private void Update()
         {
-            RotateView();
-            // the jump state needs to read here to make sure it is not missed
-            if (!m_Jump)
+            if (flag)
             {
-                m_Jump = CrossPlatformInputManager.GetButtonDown("Jump");
-            }
+                RotateView();
+                // the jump state needs to read here to make sure it is not missed
+                if (!m_Jump)
+                {
+                    m_Jump = CrossPlatformInputManager.GetButtonDown("Jump");
+                }
 
-            if (!m_PreviouslyGrounded && m_CharacterController.isGrounded)
-            {
-                StartCoroutine(m_JumpBob.DoBobCycle());
-                PlayLandingSound();
-                m_MoveDir.y = 0f;
-                m_Jumping = false;
+                if (!m_PreviouslyGrounded && m_CharacterController.isGrounded)
+                {
+                    StartCoroutine(m_JumpBob.DoBobCycle());
+                    PlayLandingSound();
+                    m_MoveDir.y = 0f;
+                    m_Jumping = false;
+                }
+                if (!m_CharacterController.isGrounded && !m_Jumping && m_PreviouslyGrounded)
+                {
+                    m_MoveDir.y = 0f;
+                }
+                timer -= Time.deltaTime;
+                SetCountText();
+                if (timer <= 0.0)
+                {
+                    life = life - 10;
+                    if (life <= 0)
+                        life = 0;
+                    timer = 10.0f;
+                    SetCountText();
+                    WrongSound();
+                }
+               
+                m_PreviouslyGrounded = m_CharacterController.isGrounded;
             }
-            if (!m_CharacterController.isGrounded && !m_Jumping && m_PreviouslyGrounded)
+            if (life <= 0 && flag)
             {
-                m_MoveDir.y = 0f;
+                flag = false;
+                Gameover();
             }
-			timer -= Time.deltaTime;
-			SetCountText ();
-			if (timer <= 0.0) {
-				count = count - 1;
-				timer = 10.0f;
-				SetCountText ();
-				WrongSound ();
-			}
-			if(timer>3.0f && timer<3.1f)
-			{
-				AlarmSound();
-			}
-			m_PreviouslyGrounded = m_CharacterController.isGrounded;
-
         }
 
         private void PlayLandingSound()
@@ -142,6 +173,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_AudioSource.Play();
             m_NextStep = m_StepCycle + .5f;
         }
+
 
 
         private void FixedUpdate()
@@ -197,7 +229,14 @@ namespace UnityStandardAssets.Characters.FirstPerson
 			m_AudioSource.clip = m_PickUp;
 			m_AudioSource.Play ();
 		}
-
+		private void Gameover()
+		{
+            gameoverImage.gameObject.SetActive(true);
+            m_WalkSpeed = 0;
+            m_RunSpeed = 0; 
+            m_AudioSource.clip = m_Gameover;
+			m_AudioSource.Play ();
+		}
         private void PlayJumpSound()
         {
             m_AudioSource.clip = m_JumpSound;
